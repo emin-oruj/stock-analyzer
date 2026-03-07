@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Analyst AI</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0e1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid #1e3a5f;
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header .logo {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+
+    header p {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .search-section {
+      padding: 48px 32px 32px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .search-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .search-input {
+      flex: 1;
+      background: #131929;
+      border: 1px solid #1e3a5f;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 16px;
+      color: #f1f5f9;
+      outline: none;
+      transition: border-color 0.2s;
+      text-transform: uppercase;
+    }
+
+    .search-input::placeholder { color: #475569; text-transform: none; }
+    .search-input:focus { border-color: #3b82f6; }
+
+    .search-btn {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border: none;
+      border-radius: 10px;
+      padding: 14px 28px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .search-btn:hover { opacity: 0.9; }
+    .search-btn:active { transform: scale(0.97); }
+    .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .examples {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .examples span { font-size: 12px; color: #475569; }
+
+    .example-chip {
+      background: #131929;
+      border: 1px solid #1e3a5f;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .example-chip:hover {
+      border-color: #3b82f6;
+      color: #3b82f6;
+    }
+
+    .main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 32px 64px;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 60px 0;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #1e3a5f;
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p { color: #64748b; font-size: 14px; }
+    .loading .ticker-loading { font-size: 20px; font-weight: 700; color: #3b82f6; margin-bottom: 8px; }
+
+    .error-box {
+      display: none;
+      background: #1a0f0f;
+      border: 1px solid #7f1d1d;
+      border-radius: 10px;
+      padding: 16px 20px;
+      color: #fca5a5;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .result { display: none; }
+
+    .stock-header {
+      background: linear-gradient(135deg, #0f172a, #131929);
+      border: 1px solid #1e3a5f;
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+
+    .stock-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .stock-name { font-size: 22px; font-weight: 700; color: #f1f5f9; }
+    .stock-ticker { font-size: 14px; color: #64748b; margin-top: 4px; }
+
+    .stock-price {
+      text-align: right;
+    }
+
+    .price-value { font-size: 28px; font-weight: 700; color: #22d3ee; }
+    .price-label { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+    .stock-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #1e293b;
+      flex-wrap: wrap;
+    }
+
+    .meta-item { }
+    .meta-label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; }
+    .meta-value { font-size: 14px; font-weight: 600; color: #cbd5e1; margin-top: 3px; }
+
+    .analysis-card {
+      background: #0f172a;
+      border: 1px solid #1e3a5f;
+      border-radius: 14px;
+      padding: 28px 32px;
+    }
+
+    .analysis-card h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #3b82f6;
+      margin: 28px 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .analysis-card h2:first-child { margin-top: 0; }
+
+    .analysis-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 16px 0 6px;
+    }
+
+    .analysis-card p {
+      font-size: 14px;
+      line-height: 1.75;
+      color: #cbd5e1;
+      margin-bottom: 10px;
+    }
+
+    .analysis-card ul, .analysis-card ol {
+      padding-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .analysis-card li {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #cbd5e1;
+      margin-bottom: 4px;
+    }
+
+    .analysis-card strong { color: #f1f5f9; }
+
+    .analysis-card em { color: #94a3b8; }
+
+    .verdict {
+      background: #0a1628;
+      border: 1px solid #1e3a5f;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-top: 10px;
+    }
+
+    .disclaimer {
+      font-size: 12px;
+      color: #334155;
+      text-align: center;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">📈</div>
+  <div>
+    <h1>Stock Analyst AI</h1>
+    <p>Powered by Gemini AI + Real-Time Market Data</p>
+  </div>
+</header>
+
+<div class="search-section">
+  <div class="search-label">Enter a stock, ETF, or index ticker</div>
+  <div class="search-row">
+    <input
+      class="search-input"
+      id="tickerInput"
+      type="text"
+      placeholder="e.g. AAPL, NVDA, VOO, TSLA"
+      autocomplete="off"
+    />
+    <button class="search-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+  </div>
+  <div class="examples">
+    <span>Try:</span>
+    <span class="example-chip" onclick="setTicker('AAPL')">AAPL</span>
+    <span class="example-chip" onclick="setTicker('NVDA')">NVDA</span>
+    <span class="example-chip" onclick="setTicker('TSLA')">TSLA</span>
+    <span class="example-chip" onclick="setTicker('VOO')">VOO</span>
+    <span class="example-chip" onclick="setTicker('MSFT')">MSFT</span>
+    <span class="example-chip" onclick="setTicker('AMZN')">AMZN</span>
+    <span class="example-chip" onclick="setTicker('BRK-B')">BRK-B</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="ticker-loading" id="loadingTicker"></div>
+    <p>Fetching real-time data and generating analysis...</p>
+  </div>
+
+  <div class="result" id="result">
+    <div class="stock-header">
+      <div class="stock-header-top">
+        <div>
+          <div class="stock-name" id="stockName"></div>
+          <div class="stock-ticker" id="stockTicker"></div>
+        </div>
+        <div class="stock-price">
+          <div class="price-value" id="stockPrice"></div>
+          <div class="price-label" id="stockCurrency"></div>
+        </div>
+      </div>
+      <div class="stock-meta">
+        <div class="meta-item">
+          <div class="meta-label">Market Cap</div>
+          <div class="meta-value" id="stockMarketCap"></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">52W High</div>
+          <div class="meta-value" id="stock52High"></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">52W Low</div>
+          <div class="meta-value" id="stock52Low"></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Analyst Target</div>
+          <div class="meta-value" id="stockTarget"></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Sector</div>
+          <div class="meta-value" id="stockSector"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-card" id="analysisContent"></div>
+
+    <div class="disclaimer">
+      This analysis is AI-generated for informational purposes only and does not constitute financial advice.
+      Always conduct your own research before making investment decisions.
+    </div>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('tickerInput');
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
+
+  function setTicker(ticker) {
+    input.value = ticker;
+    analyze();
+  }
+
+  function fmtCap(val) {
+    if (!val || val === 'N/A') return 'N/A';
+    if (val >= 1e12) return '$' + (val / 1e12).toFixed(2) + 'T';
+    if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
+    if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + 'M';
+    return '$' + val;
+  }
+
+  async function analyze() {
+    const ticker = input.value.trim().toUpperCase();
+    if (!ticker) return;
+
+    document.getElementById('errorBox').style.display = 'none';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('loadingTicker').textContent = ticker;
+    document.getElementById('analyzeBtn').disabled = true;
+
+    try {
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Analysis failed.');
+      }
+
+      document.getElementById('stockName').textContent = data.name;
+      document.getElementById('stockTicker').textContent = data.ticker;
+      document.getElementById('stockPrice').textContent = data.price !== 'N/A' ? `${data.price}` : 'N/A';
+      document.getElementById('stockCurrency').textContent = data.currency || 'USD';
+      document.getElementById('stockMarketCap').textContent = fmtCap(data.market_cap);
+      document.getElementById('stock52High').textContent = data.week52_high !== 'N/A' ? `${data.week52_high}` : 'N/A';
+      document.getElementById('stock52Low').textContent = data.week52_low !== 'N/A' ? `${data.week52_low}` : 'N/A';
+      document.getElementById('stockTarget').textContent = data.analyst_target !== 'N/A' ? `${data.analyst_target}` : 'N/A';
+      document.getElementById('stockSector').textContent = data.sector || 'N/A';
+
+      document.getElementById('analysisContent').innerHTML = marked.parse(data.analysis);
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('result').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('loading').style.display = 'none';
+      const box = document.getElementById('errorBox');
+      box.textContent = err.message;
+      box.style.display = 'block';
+    } finally {
+      document.getElementById('analyzeBtn').disabled = false;
+    }
+  }
+</script>
+
+</body>
+</html>
