@@ -1,14 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from google import genai
+from groq import Groq
 from dotenv import load_dotenv
 import os
 import requests
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 FINNHUB_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB = "https://finnhub.io/api/v1"
 COINGECKO = "https://api.coingecko.com/api/v3"
@@ -397,12 +397,12 @@ async def analyze(request: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=f"Error fetching data: {str(e)}")
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config={"temperature": 0}
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
         )
-        analysis = response.text
+        analysis = response.choices[0].message.content
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini error: {str(e)}")
 
