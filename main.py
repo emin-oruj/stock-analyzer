@@ -12,17 +12,18 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 FINNHUB_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB = "https://finnhub.io/api/v1"
 COINGECKO = "https://api.coingecko.com/api/v3"
+COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
 
-# Common crypto symbol -> CoinGecko ID mapping
+# Common crypto symbol -> CoinCap ID mapping
 CRYPTO_IDS = {
     "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
     "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
     "DOT": "polkadot", "MATIC": "matic-network", "LINK": "chainlink",
     "UNI": "uniswap", "LTC": "litecoin", "BCH": "bitcoin-cash", "ATOM": "cosmos",
     "XLM": "stellar", "ALGO": "algorand", "VET": "vechain", "FIL": "filecoin",
-    "TRX": "tron", "SHIB": "shiba-inu", "PEPE": "pepe", "SUI": "sui",
-    "APT": "aptos", "ARB": "arbitrum", "OP": "optimism", "INJ": "injective-protocol",
-    "NEAR": "near", "ICP": "internet-computer", "HBAR": "hedera-hashgraph",
+    "TRX": "tron", "SHIB": "shiba-inu", "SUI": "sui", "APT": "aptos",
+    "ARB": "arbitrum", "NEAR": "near", "ICP": "internet-computer",
+    "HBAR": "hedera-hashgraph", "INJ": "injective-protocol", "OP": "optimism",
 }
 
 app = FastAPI()
@@ -43,33 +44,29 @@ def fetch_crypto_data(ticker: str) -> dict:
 
     r = requests.get(
         f"{COINGECKO}/coins/{coin_id}",
-        params={"localization": "false", "tickers": "false", "community_data": "true", "developer_data": "false"},
+        params={"localization": "false", "tickers": "false", "community_data": "false", "developer_data": "false"},
+        headers={"x-cg-demo-api-key": COINGECKO_KEY},
         timeout=15
     )
     if not r.ok:
-        raise ValueError(f"Could not fetch data for {ticker}.")
+        raise ValueError(f"Could not fetch data for {ticker}. Status: {r.status_code}")
 
     d = r.json()
     market = d.get("market_data", {})
 
     def g(obj, *keys, default="N/A"):
         for k in keys:
-            if isinstance(obj, dict):
-                obj = obj.get(k)
-            else:
-                return default
+            obj = obj.get(k) if isinstance(obj, dict) else None
         if obj is None:
             return default
-        if isinstance(obj, float):
-            return round(obj, 6)
-        return obj
+        return round(obj, 6) if isinstance(obj, float) and obj < 1 else (round(obj, 2) if isinstance(obj, float) else obj)
 
     return {
         "type": "crypto",
         "name": d.get("name", ticker),
         "symbol": ticker.upper(),
         "description": (d.get("description", {}).get("en") or "")[:500],
-        "categories": ", ".join(d.get("categories", [])[:3]),
+        "categories": ", ".join(d.get("categories", [])[:3]) or "Cryptocurrency",
         "price": g(market, "current_price", "usd"),
         "market_cap": g(market, "market_cap", "usd"),
         "market_cap_rank": d.get("market_cap_rank", "N/A"),
