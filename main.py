@@ -11,6 +11,19 @@ load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 FINNHUB_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB = "https://finnhub.io/api/v1"
+COINGECKO = "https://api.coingecko.com/api/v3"
+
+# Common crypto symbol -> CoinGecko ID mapping
+CRYPTO_IDS = {
+    "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
+    "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
+    "DOT": "polkadot", "MATIC": "matic-network", "LINK": "chainlink",
+    "UNI": "uniswap", "LTC": "litecoin", "BCH": "bitcoin-cash", "ATOM": "cosmos",
+    "XLM": "stellar", "ALGO": "algorand", "VET": "vechain", "FIL": "filecoin",
+    "TRX": "tron", "SHIB": "shiba-inu", "PEPE": "pepe", "SUI": "sui",
+    "APT": "aptos", "ARB": "arbitrum", "OP": "optimism", "INJ": "injective-protocol",
+    "NEAR": "near", "ICP": "internet-computer", "HBAR": "hedera-hashgraph",
+}
 
 app = FastAPI()
 
@@ -19,16 +32,73 @@ class AnalyzeRequest(BaseModel):
     ticker: str
 
 
+def is_crypto(ticker: str) -> bool:
+    return ticker.upper() in CRYPTO_IDS
+
+
+def fetch_crypto_data(ticker: str) -> dict:
+    coin_id = CRYPTO_IDS.get(ticker.upper())
+    if not coin_id:
+        raise ValueError(f"Crypto '{ticker}' not supported. Try BTC, ETH, SOL, etc.")
+
+    r = requests.get(
+        f"{COINGECKO}/coins/{coin_id}",
+        params={"localization": "false", "tickers": "false", "community_data": "true", "developer_data": "false"},
+        timeout=15
+    )
+    if not r.ok:
+        raise ValueError(f"Could not fetch data for {ticker}.")
+
+    d = r.json()
+    market = d.get("market_data", {})
+
+    def g(obj, *keys, default="N/A"):
+        for k in keys:
+            if isinstance(obj, dict):
+                obj = obj.get(k)
+            else:
+                return default
+        if obj is None:
+            return default
+        if isinstance(obj, float):
+            return round(obj, 6)
+        return obj
+
+    return {
+        "type": "crypto",
+        "name": d.get("name", ticker),
+        "symbol": ticker.upper(),
+        "description": (d.get("description", {}).get("en") or "")[:500],
+        "categories": ", ".join(d.get("categories", [])[:3]),
+        "price": g(market, "current_price", "usd"),
+        "market_cap": g(market, "market_cap", "usd"),
+        "market_cap_rank": d.get("market_cap_rank", "N/A"),
+        "total_volume_24h": g(market, "total_volume", "usd"),
+        "high_24h": g(market, "high_24h", "usd"),
+        "low_24h": g(market, "low_24h", "usd"),
+        "price_change_24h": g(market, "price_change_percentage_24h"),
+        "price_change_7d": g(market, "price_change_percentage_7d"),
+        "price_change_30d": g(market, "price_change_percentage_30d"),
+        "ath": g(market, "ath", "usd"),
+        "ath_change_pct": g(market, "ath_change_percentage", "usd"),
+        "atl": g(market, "atl", "usd"),
+        "circulating_supply": g(market, "circulating_supply"),
+        "total_supply": g(market, "total_supply"),
+        "max_supply": g(market, "max_supply"),
+        "fully_diluted_valuation": g(market, "fully_diluted_valuation", "usd"),
+    }
+
+
 def fetch_stock_data(ticker: str) -> dict:
     h = {"X-Finnhub-Token": FINNHUB_KEY}
 
-    profile  = requests.get(f"{FINNHUB}/stock/profile2", params={"symbol": ticker}, headers=h, timeout=10).json()
-    quote    = requests.get(f"{FINNHUB}/quote",          params={"symbol": ticker}, headers=h, timeout=10).json()
-    metrics  = requests.get(f"{FINNHUB}/stock/metric",   params={"symbol": ticker, "metric": "all"}, headers=h, timeout=10).json().get("metric", {})
-    target   = requests.get(f"{FINNHUB}/stock/price-target", params={"symbol": ticker}, headers=h, timeout=10).json()
+    profile = requests.get(f"{FINNHUB}/stock/profile2", params={"symbol": ticker}, headers=h, timeout=10).json()
+    quote   = requests.get(f"{FINNHUB}/quote",          params={"symbol": ticker}, headers=h, timeout=10).json()
+    metrics = requests.get(f"{FINNHUB}/stock/metric",   params={"symbol": ticker, "metric": "all"}, headers=h, timeout=10).json().get("metric", {})
+    target  = requests.get(f"{FINNHUB}/stock/price-target", params={"symbol": ticker}, headers=h, timeout=10).json()
 
     if not profile.get("name"):
-        raise ValueError(f"Ticker '{ticker}' not found.")
+        raise ValueError(f"Ticker '{ticker}' not found. Check the symbol and try again.")
 
     def g(d, key, default="N/A"):
         val = d.get(key)
@@ -40,6 +110,7 @@ def fetch_stock_data(ticker: str) -> dict:
     market_cap = int(market_cap_raw * 1_000_000) if market_cap_raw != "N/A" else "N/A"
 
     return {
+        "type": "stock",
         "name":             g(profile, "name", ticker),
         "sector":           g(profile, "finnhubIndustry", "N/A"),
         "industry":         g(profile, "finnhubIndustry", "N/A"),
@@ -74,7 +145,72 @@ def fetch_stock_data(ticker: str) -> dict:
     }
 
 
-def build_prompt(ticker: str, d: dict) -> str:
+def build_crypto_prompt(ticker: str, d: dict) -> str:
+    def fmt(val):
+        if isinstance(val, (int, float)) and val != "N/A":
+            if val >= 1_000_000_000:
+                return f"${val/1_000_000_000:.2f}B"
+            elif val >= 1_000_000:
+                return f"${val/1_000_000:.2f}M"
+            return f"${val:,.4f}" if val < 1 else f"${val:,.2f}"
+        return str(val)
+
+    return f"""You are a senior professional crypto market analyst. Analyze the following cryptocurrency using the real-time market data below. Be precise, honest, and data-driven.
+
+CRYPTO: {ticker} — {d['name']}
+Categories: {d['categories']}
+Market Cap Rank: #{d['market_cap_rank']}
+
+PRICE & MARKET DATA:
+- Current Price: {fmt(d['price'])}
+- Market Cap: {fmt(d['market_cap'])}
+- 24h Volume: {fmt(d['total_volume_24h'])}
+- 24h Range: {fmt(d['low_24h'])} – {fmt(d['high_24h'])}
+- Fully Diluted Valuation: {fmt(d['fully_diluted_valuation'])}
+
+PRICE PERFORMANCE:
+- 24h Change: {d['price_change_24h']}%
+- 7d Change: {d['price_change_7d']}%
+- 30d Change: {d['price_change_30d']}%
+- All-Time High: {fmt(d['ath'])} ({d['ath_change_pct']}% from ATH)
+- All-Time Low: {fmt(d['atl'])}
+
+SUPPLY:
+- Circulating Supply: {d['circulating_supply']}
+- Total Supply: {d['total_supply']}
+- Max Supply: {d['max_supply']}
+
+DESCRIPTION:
+{d['description'] or 'N/A'}
+
+---
+Provide a comprehensive crypto analysis in the following markdown structure:
+
+## 1. What Is It?
+Explain the project, its purpose, technology, and use case.
+
+## 2. Market Position & Tokenomics
+Assess market cap rank, supply dynamics, inflation/deflation mechanics.
+
+## 3. Price Analysis
+Current price vs ATH, recent momentum, support/resistance levels.
+
+## 4. Competitive Edge
+What makes this crypto unique vs competitors?
+
+## 5. Key Risks
+Top 3–5 risks: regulatory, technical, competition, liquidity, etc.
+
+## 6. Long-Term Potential
+Adoption trends, ecosystem growth, 1–3 year outlook.
+
+## 7. Verdict & Recommendation
+Give a clear rating: **Strong Buy / Buy / Hold / Avoid / Sell**
+Include a price target range and a 2–3 sentence investment thesis.
+"""
+
+
+def build_stock_prompt(ticker: str, d: dict) -> str:
     def fmt_num(val):
         if isinstance(val, (int, float)) and val != "N/A":
             if val > 1_000_000_000:
@@ -159,14 +295,18 @@ async def analyze(request: AnalyzeRequest):
     ticker = request.ticker.upper().strip()
 
     try:
-        data = fetch_stock_data(ticker)
+        if is_crypto(ticker):
+            data = fetch_crypto_data(ticker)
+            prompt = build_crypto_prompt(ticker, data)
+        else:
+            data = fetch_stock_data(ticker)
+            prompt = build_stock_prompt(ticker, data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error fetching data: {str(e)}")
 
     try:
-        prompt = build_prompt(ticker, data)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -180,13 +320,14 @@ async def analyze(request: AnalyzeRequest):
         "ticker": ticker,
         "name": data["name"],
         "price": data["price"],
-        "currency": data["currency"],
+        "currency": data.get("currency", "USD"),
         "market_cap": data["market_cap"],
-        "week52_high": data["week52_high"],
-        "week52_low": data["week52_low"],
-        "analyst_target": data["analyst_target"],
-        "sector": data["sector"],
+        "week52_high": data.get("week52_high", data.get("ath", "N/A")),
+        "week52_low": data.get("week52_low", data.get("atl", "N/A")),
+        "analyst_target": data.get("analyst_target", "N/A"),
+        "sector": data.get("sector", data.get("categories", "Crypto")),
         "analysis": analysis,
+        "asset_type": data["type"],
     }
 
 

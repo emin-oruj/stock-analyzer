@@ -126,6 +126,9 @@
       color: #3b82f6;
     }
 
+    .crypto-chip { border-color: #2d1f4e; color: #a78bfa; }
+    .crypto-chip:hover { border-color: #8b5cf6; color: #8b5cf6; }
+
     .main {
       max-width: 860px;
       margin: 0 auto;
@@ -293,14 +296,20 @@
     <button class="search-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
   </div>
   <div class="examples">
-    <span>Try:</span>
+    <span>Stocks:</span>
     <span class="example-chip" onclick="setTicker('AAPL')">AAPL</span>
     <span class="example-chip" onclick="setTicker('NVDA')">NVDA</span>
     <span class="example-chip" onclick="setTicker('TSLA')">TSLA</span>
-    <span class="example-chip" onclick="setTicker('VOO')">VOO</span>
     <span class="example-chip" onclick="setTicker('MSFT')">MSFT</span>
     <span class="example-chip" onclick="setTicker('AMZN')">AMZN</span>
-    <span class="example-chip" onclick="setTicker('BRK-B')">BRK-B</span>
+  </div>
+  <div class="examples" style="margin-top:8px">
+    <span>Crypto:</span>
+    <span class="example-chip crypto-chip" onclick="setTicker('BTC')">BTC</span>
+    <span class="example-chip crypto-chip" onclick="setTicker('ETH')">ETH</span>
+    <span class="example-chip crypto-chip" onclick="setTicker('SOL')">SOL</span>
+    <span class="example-chip crypto-chip" onclick="setTicker('DOGE')">DOGE</span>
+    <span class="example-chip crypto-chip" onclick="setTicker('XRP')">XRP</span>
   </div>
 </div>
 
