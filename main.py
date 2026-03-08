@@ -168,7 +168,9 @@ async def analyze(request: AnalyzeRequest):
     try:
         prompt = build_prompt(ticker, data)
         response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={"temperature": 0}
         )
         analysis = response.text
     except Exception as e:
