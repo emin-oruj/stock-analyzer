@@ -1,14 +1,16 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import yfinance as yf
 from google import genai
 from dotenv import load_dotenv
 import os
+import requests
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+FINNHUB_KEY = os.getenv("FINNHUB_API_KEY")
+FINNHUB = "https://finnhub.io/api/v1"
 
 app = FastAPI()
 
@@ -18,46 +20,57 @@ class AnalyzeRequest(BaseModel):
 
 
 def fetch_stock_data(ticker: str) -> dict:
-    stock = yf.Ticker(ticker)
-    info = stock.info
+    h = {"X-Finnhub-Token": FINNHUB_KEY}
 
-    def fmt(val):
-        if isinstance(val, float):
-            return round(val, 4)
-        return val
+    profile  = requests.get(f"{FINNHUB}/stock/profile2", params={"symbol": ticker}, headers=h, timeout=10).json()
+    quote    = requests.get(f"{FINNHUB}/quote",          params={"symbol": ticker}, headers=h, timeout=10).json()
+    metrics  = requests.get(f"{FINNHUB}/stock/metric",   params={"symbol": ticker, "metric": "all"}, headers=h, timeout=10).json().get("metric", {})
+    target   = requests.get(f"{FINNHUB}/stock/price-target", params={"symbol": ticker}, headers=h, timeout=10).json()
+
+    if not profile.get("name"):
+        raise ValueError(f"Ticker '{ticker}' not found.")
+
+    def g(d, key, default="N/A"):
+        val = d.get(key)
+        if val is None or val == "" or val == 0:
+            return default
+        return round(val, 4) if isinstance(val, float) else val
+
+    market_cap_raw = g(profile, "marketCapitalization")
+    market_cap = int(market_cap_raw * 1_000_000) if market_cap_raw != "N/A" else "N/A"
 
     return {
-        "name": info.get("longName", ticker),
-        "sector": info.get("sector", "N/A"),
-        "industry": info.get("industry", "N/A"),
-        "country": info.get("country", "N/A"),
-        "summary": (info.get("longBusinessSummary") or "N/A")[:600],
-        "price": fmt(info.get("currentPrice", info.get("regularMarketPrice", "N/A"))),
-        "market_cap": info.get("marketCap", "N/A"),
-        "pe_ratio": fmt(info.get("trailingPE", "N/A")),
-        "forward_pe": fmt(info.get("forwardPE", "N/A")),
-        "peg_ratio": fmt(info.get("pegRatio", "N/A")),
-        "ps_ratio": fmt(info.get("priceToSalesTrailing12Months", "N/A")),
-        "pb_ratio": fmt(info.get("priceToBook", "N/A")),
-        "ev_ebitda": fmt(info.get("enterpriseToEbitda", "N/A")),
-        "revenue": info.get("totalRevenue", "N/A"),
-        "revenue_growth": fmt(info.get("revenueGrowth", "N/A")),
-        "gross_margins": fmt(info.get("grossMargins", "N/A")),
-        "operating_margins": fmt(info.get("operatingMargins", "N/A")),
-        "profit_margins": fmt(info.get("profitMargins", "N/A")),
-        "roe": fmt(info.get("returnOnEquity", "N/A")),
-        "roa": fmt(info.get("returnOnAssets", "N/A")),
-        "debt_to_equity": fmt(info.get("debtToEquity", "N/A")),
-        "current_ratio": fmt(info.get("currentRatio", "N/A")),
-        "free_cashflow": info.get("freeCashflow", "N/A"),
-        "dividend_yield": fmt(info.get("dividendYield", "N/A")),
-        "week52_high": fmt(info.get("fiftyTwoWeekHigh", "N/A")),
-        "week52_low": fmt(info.get("fiftyTwoWeekLow", "N/A")),
-        "analyst_target": fmt(info.get("targetMeanPrice", "N/A")),
-        "beta": fmt(info.get("beta", "N/A")),
-        "employees": info.get("fullTimeEmployees", "N/A"),
-        "exchange": info.get("exchange", "N/A"),
-        "currency": info.get("currency", "USD"),
+        "name":             g(profile, "name", ticker),
+        "sector":           g(profile, "finnhubIndustry", "N/A"),
+        "industry":         g(profile, "finnhubIndustry", "N/A"),
+        "country":          g(profile, "country", "N/A"),
+        "exchange":         g(profile, "exchange", "N/A"),
+        "currency":         g(profile, "currency", "USD"),
+        "employees":        g(profile, "employeeTotal", "N/A"),
+        "summary":          f"{g(profile,'name',ticker)} operates in the {g(profile,'finnhubIndustry','')} industry, listed on {g(profile,'exchange','')} ({g(profile,'country','')}).",
+        "price":            g(quote, "c"),
+        "market_cap":       market_cap,
+        "week52_high":      g(metrics, "52WeekHigh"),
+        "week52_low":       g(metrics, "52WeekLow"),
+        "analyst_target":   g(target, "targetMean"),
+        "beta":             g(metrics, "beta"),
+        "pe_ratio":         g(metrics, "peNormalizedAnnual"),
+        "forward_pe":       g(metrics, "peTTM"),
+        "peg_ratio":        g(metrics, "pegAnnual"),
+        "ps_ratio":         g(metrics, "psAnnual"),
+        "pb_ratio":         g(metrics, "pbAnnual"),
+        "ev_ebitda":        g(metrics, "currentEv/freeCashFlowAnnual"),
+        "revenue":          g(metrics, "revenuePerShareTTM"),
+        "revenue_growth":   g(metrics, "revenueGrowthQuarterlyYoy"),
+        "gross_margins":    g(metrics, "grossMarginAnnual"),
+        "operating_margins":g(metrics, "operatingMarginAnnual"),
+        "profit_margins":   g(metrics, "netProfitMarginAnnual"),
+        "roe":              g(metrics, "roeRfy"),
+        "roa":              g(metrics, "roaRfy"),
+        "debt_to_equity":   g(metrics, "totalDebt/totalEquityAnnual"),
+        "current_ratio":    g(metrics, "currentRatioAnnual"),
+        "free_cashflow":    g(metrics, "freeCashFlowAnnual"),
+        "dividend_yield":   g(metrics, "dividendYieldIndicatedAnnual"),
     }
 
 
@@ -94,12 +107,12 @@ VALUATION RATIOS:
 - EV/EBITDA: {d['ev_ebitda']}
 
 FINANCIALS:
-- Revenue: {fmt_num(d['revenue'])}
+- Revenue Per Share (TTM): {d['revenue']}
 - Revenue Growth (YoY): {d['revenue_growth']}
 - Gross Margin: {d['gross_margins']}
 - Operating Margin: {d['operating_margins']}
 - Net Profit Margin: {d['profit_margins']}
-- Free Cash Flow: {fmt_num(d['free_cashflow'])}
+- Free Cash Flow (Annual): {fmt_num(d['free_cashflow'])}
 - Dividend Yield: {d['dividend_yield']}
 
 FINANCIAL HEALTH:
@@ -147,10 +160,8 @@ async def analyze(request: AnalyzeRequest):
 
     try:
         data = fetch_stock_data(ticker)
-        if data["price"] == "N/A" and data["market_cap"] == "N/A":
-            raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found.")
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error fetching data: {str(e)}")
 
