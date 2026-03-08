@@ -264,6 +264,58 @@
       margin-top: 10px;
     }
 
+    .calc-card {
+      background: #0f172a;
+      border: 1px solid #1e3a5f;
+      border-radius: 14px;
+      padding: 20px 28px;
+      margin-bottom: 24px;
+    }
+
+    .calc-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+
+    .calc-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .calc-item { display: flex; flex-direction: column; gap: 6px; }
+    .calc-label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; }
+    .calc-value { font-size: 20px; font-weight: 700; color: #22d3ee; }
+    .calc-arrow { font-size: 20px; color: #334155; font-weight: 300; }
+
+    .calc-input {
+      background: #131929;
+      border: 1px solid #1e3a5f;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 16px;
+      color: #f1f5f9;
+      outline: none;
+      width: 160px;
+      transition: border-color 0.2s;
+    }
+
+    .calc-input:focus { border-color: #3b82f6; }
+
+    .calc-result {
+      font-size: 28px;
+      font-weight: 800;
+      color: #22c55e;
+      min-width: 80px;
+    }
+
+    .calc-result.negative { color: #ef4444; }
+
     .disclaimer {
       font-size: 12px;
       color: #334155;
@@ -358,6 +410,26 @@
       </div>
     </div>
 
+    <div class="calc-card" id="calcCard" style="display:none">
+      <div class="calc-title">X Calculator</div>
+      <div class="calc-row">
+        <div class="calc-item">
+          <div class="calc-label">Current Price</div>
+          <div class="calc-value" id="calcCurrent">-</div>
+        </div>
+        <div class="calc-arrow">→</div>
+        <div class="calc-item">
+          <div class="calc-label">Your Target Price</div>
+          <input class="calc-input" id="calcTarget" type="number" placeholder="Enter target" oninput="calcX()" />
+        </div>
+        <div class="calc-arrow">=</div>
+        <div class="calc-item">
+          <div class="calc-label">Potential Return</div>
+          <div class="calc-result" id="calcResult">-</div>
+        </div>
+      </div>
+    </div>
+
     <div class="analysis-card" id="analysisContent"></div>
 
     <div class="disclaimer">
@@ -382,6 +454,21 @@
     if (val >= 1e9) return '$' + (val / 1e9).toFixed(2) + 'B';
     if (val >= 1e6) return '$' + (val / 1e6).toFixed(2) + 'M';
     return '$' + val;
+  }
+
+  function calcX() {
+    const price = parseFloat(document.getElementById('calcCard').dataset.price);
+    const target = parseFloat(document.getElementById('calcTarget').value);
+    const resultEl = document.getElementById('calcResult');
+    if (!isNaN(price) && !isNaN(target) && price > 0 && target > 0) {
+      const x = target / price;
+      const pct = ((target - price) / price * 100).toFixed(1);
+      resultEl.textContent = x.toFixed(2) + 'x (' + (pct > 0 ? '+' : '') + pct + '%)';
+      resultEl.className = 'calc-result' + (target >= price ? '' : ' negative');
+    } else {
+      resultEl.textContent = '-';
+      resultEl.className = 'calc-result';
+    }
   }
 
   async function analyze() {
@@ -418,6 +505,16 @@
       document.getElementById('stockSector').textContent = data.sector || 'N/A';
 
       document.getElementById('analysisContent').innerHTML = marked.parse(data.analysis);
+
+      // X Calculator
+      const price = parseFloat(data.price);
+      if (!isNaN(price) && price > 0) {
+        document.getElementById('calcCurrent').textContent = '$' + price.toLocaleString();
+        document.getElementById('calcCard').dataset.price = price;
+        document.getElementById('calcTarget').value = '';
+        document.getElementById('calcResult').textContent = '-';
+        document.getElementById('calcCard').style.display = 'block';
+      }
 
       document.getElementById('loading').style.display = 'none';
       document.getElementById('result').style.display = 'block';

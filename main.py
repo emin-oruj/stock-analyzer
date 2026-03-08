@@ -209,7 +209,7 @@ Adoption trends, ecosystem growth, 1–3 year outlook.
 
 ## 7. Verdict & Recommendation
 Give a clear rating: **Strong Buy / Buy / Hold / Avoid / Sell**
-Include a price target range and a 2–3 sentence investment thesis.
+Include a price target range, a 2–3 sentence investment thesis, and the potential return multiplier from current price (e.g. "At a target of $X, this represents a **2.5x** from the current price of $Y").
 """
 
 
@@ -289,7 +289,7 @@ Industry tailwinds, 3–5 year growth outlook, secular trends.
 
 ## 8. Verdict & Recommendation
 Give a clear rating: **Strong Buy / Buy / Hold / Avoid / Sell**
-Include a suggested target price range and a 2–3 sentence investment thesis.
+Include a suggested target price range, a 2–3 sentence investment thesis, and the potential return multiplier from current price (e.g. "At a target of $X, this represents a **2.5x** from the current price of $Y").
 """
 
 
