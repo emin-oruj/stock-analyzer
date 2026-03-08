@@ -5,7 +5,7 @@ import yfinance as yf
 from google import genai
 from dotenv import load_dotenv
 import os
-import requests
+import curl_cffi
 
 load_dotenv()
 
@@ -19,10 +19,7 @@ class AnalyzeRequest(BaseModel):
 
 
 def fetch_stock_data(ticker: str) -> dict:
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    })
+    session = curl_cffi.requests.Session(impersonate="chrome")
     stock = yf.Ticker(ticker, session=session)
     info = stock.info
 
