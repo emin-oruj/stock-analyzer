@@ -5,6 +5,7 @@ import yfinance as yf
 from google import genai
 from dotenv import load_dotenv
 import os
+import requests
 
 load_dotenv()
 
@@ -18,7 +19,11 @@ class AnalyzeRequest(BaseModel):
 
 
 def fetch_stock_data(ticker: str) -> dict:
-    stock = yf.Ticker(ticker)
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+    stock = yf.Ticker(ticker, session=session)
     info = stock.info
 
     def fmt(val):
