@@ -293,6 +293,76 @@ Include a suggested target price range, a 2–3 sentence investment thesis, and 
 """
 
 
+@app.get("/market-overview")
+async def market_overview():
+    h = {"X-Finnhub-Token": FINNHUB_KEY}
+
+    try:
+        cfg_r = requests.get("https://api.alternative.me/fng/", timeout=10)
+        cfg = cfg_r.json()["data"][0] if cfg_r.ok else {}
+    except Exception:
+        cfg = {}
+
+    try:
+        spy_quote   = requests.get(f"{FINNHUB}/quote",        params={"symbol": "SPY"}, headers=h, timeout=10).json()
+        spy_metrics = requests.get(f"{FINNHUB}/stock/metric", params={"symbol": "SPY", "metric": "all"}, headers=h, timeout=10).json().get("metric", {})
+        ndx_quote   = requests.get(f"{FINNHUB}/quote",        params={"symbol": "QQQ"}, headers=h, timeout=10).json()
+        btc_quote   = requests.get(f"{FINNHUB}/quote",        params={"symbol": "BINANCE:BTCUSDT"}, headers=h, timeout=10).json()
+
+        spy_price    = spy_quote.get("c", 0)
+        spy_change   = round(spy_quote.get("dp", 0), 2)
+        ndx_change   = round(ndx_quote.get("dp", 0), 2)
+        btc_price    = round(btc_quote.get("c", 0), 2)
+        btc_change   = round(btc_quote.get("dp", 0), 2)
+        spy_52high   = spy_metrics.get("52WeekHigh", 0)
+        spy_52low    = spy_metrics.get("52WeekLow", 0)
+
+        if spy_52high and spy_52low and spy_price:
+            pos = (spy_price - spy_52low) / (spy_52high - spy_52low) * 100
+            if pos >= 65:
+                stock_sentiment, stock_color = "Bull Market", "green"
+            elif pos <= 35:
+                stock_sentiment, stock_color = "Bear Market", "red"
+            else:
+                stock_sentiment, stock_color = "Neutral", "yellow"
+        else:
+            stock_sentiment, stock_color = "Unknown", "gray"
+
+    except Exception:
+        spy_price = spy_change = ndx_change = btc_price = btc_change = 0
+        stock_sentiment, stock_color = "Unknown", "gray"
+
+    fg_value = int(cfg.get("value", 0))
+    fg_label = cfg.get("value_classification", "N/A")
+    if fg_value >= 75:
+        crypto_color = "green"
+    elif fg_value >= 55:
+        crypto_color = "lime"
+    elif fg_value >= 45:
+        crypto_color = "yellow"
+    elif fg_value >= 25:
+        crypto_color = "orange"
+    else:
+        crypto_color = "red"
+
+    return {
+        "stocks": {
+            "spy_price": spy_price,
+            "spy_change": spy_change,
+            "ndx_change": ndx_change,
+            "sentiment": stock_sentiment,
+            "color": stock_color,
+        },
+        "crypto": {
+            "btc_price": btc_price,
+            "btc_change": btc_change,
+            "fg_value": fg_value,
+            "fg_label": fg_label,
+            "color": crypto_color,
+        }
+    }
+
+
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
     ticker = request.ticker.upper().strip()
