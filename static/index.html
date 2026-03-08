@@ -43,6 +43,40 @@
     .change-pos { color: #22c55e; }
     .change-neg { color: #ef4444; }
 
+    .fg-gauge-wrap { margin-left: 8px; }
+
+    .fg-gauge { display: flex; flex-direction: column; gap: 4px; }
+
+    .fg-track {
+      position: relative;
+      width: 200px;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #ef4444, #f97316, #eab308, #84cc16, #22c55e);
+    }
+
+    .fg-needle {
+      position: absolute;
+      top: -3px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border: 2px solid #0f172a;
+      border-radius: 50%;
+      transform: translateX(-50%);
+      transition: left 0.6s ease;
+      box-shadow: 0 0 6px rgba(0,0,0,0.5);
+    }
+
+    .fg-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-top: 2px;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #0a0e1a;
@@ -373,8 +407,22 @@
   <div class="market-section">
     <span class="market-section-title">CRYPTO</span>
     <span class="market-badge" id="cryptoSentiment">Loading...</span>
-    <span class="market-stat">Fear & Greed <span id="fgValue">-</span></span>
     <span class="market-stat">BTC <span id="btcChange">-</span></span>
+    <div class="fg-gauge-wrap" id="fgGaugeWrap" style="display:none">
+      <div class="fg-gauge">
+        <div class="fg-track">
+          <div class="fg-fill" id="fgFill"></div>
+          <div class="fg-needle" id="fgNeedle"></div>
+        </div>
+        <div class="fg-labels">
+          <span style="color:#ef4444">Extreme Fear</span>
+          <span style="color:#f97316">Fear</span>
+          <span style="color:#eab308">Neutral</span>
+          <span style="color:#84cc16">Greed</span>
+          <span style="color:#22c55e">Extreme Greed</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -528,8 +576,12 @@
       cryptoBadge.textContent = d.crypto.fg_label + ' (' + d.crypto.fg_value + ')';
       cryptoBadge.className = 'market-badge badge-' + d.crypto.color;
 
-      document.getElementById('fgValue').innerHTML = `<span class="badge-${d.crypto.color.replace('badge-','')}">${d.crypto.fg_value}/100</span>`;
       document.getElementById('btcChange').innerHTML = fmtChange(d.crypto.btc_change);
+
+      // Fear & Greed gauge
+      const fgVal = d.crypto.fg_value;
+      document.getElementById('fgNeedle').style.left = fgVal + '%';
+      document.getElementById('fgGaugeWrap').style.display = 'block';
 
     } catch(e) {
       document.getElementById('marketBar').style.display = 'none';
