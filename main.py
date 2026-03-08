@@ -14,7 +14,23 @@ FINNHUB = "https://finnhub.io/api/v1"
 COINGECKO = "https://api.coingecko.com/api/v3"
 COINGECKO_KEY = os.getenv("COINGECKO_API_KEY")
 
-# Common crypto symbol -> CoinCap ID mapping
+# Full name -> ticker aliases
+NAME_ALIASES = {
+    "BITCOIN": "BTC", "ETHEREUM": "ETH", "SOLANA": "SOL", "RIPPLE": "XRP",
+    "CARDANO": "ADA", "DOGECOIN": "DOGE", "AVALANCHE": "AVAX", "POLKADOT": "DOT",
+    "POLYGON": "MATIC", "CHAINLINK": "LINK", "UNISWAP": "UNI", "LITECOIN": "LTC",
+    "COSMOS": "ATOM", "STELLAR": "XLM", "ALGORAND": "ALGO", "TRON": "TRX",
+    "SHIBAINU": "SHIB", "SHIBINU": "SHIB", "RENDERNETWORK": "RENDER",
+    "NEARPROTOCOL": "NEAR", "INTERNETCOMPUTER": "ICP", "HEDERA": "HBAR",
+    "INJECTIVE": "INJ", "WORLDCOIN": "WLD", "FETCHAI": "FET", "THEGRAPH": "GRT",
+    "SANDBOX": "SAND", "DECENTRALAND": "MANA", "MAKERDAO": "MKR",
+    "APPLE": "AAPL", "MICROSOFT": "MSFT", "AMAZON": "AMZN", "GOOGLE": "GOOGL",
+    "ALPHABET": "GOOGL", "TESLA": "TSLA", "NVIDIA": "NVDA",
+    "NETFLIX": "NFLX", "BERKSHIRE": "BRK-B", "JPMORGAN": "JPM",
+    "VISA": "V", "MASTERCARD": "MA", "WALMART": "WMT", "COINBASE": "COIN",
+}
+
+# Common crypto symbol -> CoinGecko ID mapping
 CRYPTO_IDS = {
     "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin",
     "XRP": "ripple", "ADA": "cardano", "DOGE": "dogecoin", "AVAX": "avalanche-2",
@@ -366,6 +382,7 @@ async def market_overview():
 @app.post("/analyze")
 async def analyze(request: AnalyzeRequest):
     ticker = request.ticker.upper().strip()
+    ticker = NAME_ALIASES.get(ticker, ticker)
 
     try:
         if is_crypto(ticker):
