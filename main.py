@@ -24,6 +24,12 @@ CRYPTO_IDS = {
     "TRX": "tron", "SHIB": "shiba-inu", "SUI": "sui", "APT": "aptos",
     "ARB": "arbitrum", "NEAR": "near", "ICP": "internet-computer",
     "HBAR": "hedera-hashgraph", "INJ": "injective-protocol", "OP": "optimism",
+    "RENDER": "render-token", "RNDR": "render-token", "FET": "fetch-ai",
+    "WLD": "worldcoin-wld", "GRT": "the-graph", "SAND": "the-sandbox",
+    "MANA": "decentraland", "AAVE": "aave", "MKR": "maker", "SNX": "havven",
+    "CRV": "curve-dao-token", "LDO": "lido-dao", "RUNE": "thorchain",
+    "PENDLE": "pendle", "JUP": "jupiter-exchange-solana", "WIF": "dogwifcoin",
+    "BONK": "bonk", "PEPE": "pepe", "FLOKI": "floki",
 }
 
 app = FastAPI()
